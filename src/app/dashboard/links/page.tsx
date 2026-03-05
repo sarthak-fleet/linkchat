@@ -1,0 +1,30 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { db } from '@/db';
+import { pages, links } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { LinkEditor } from '@/components/dashboard/link-editor';
+
+export default async function LinksPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect('/login');
+
+  const page = await db.query.pages.findFirst({
+    where: eq(pages.userId, session.user.id),
+  });
+
+  if (!page) redirect('/dashboard');
+
+  const pageLinks = await db
+    .select()
+    .from(links)
+    .where(eq(links.pageId, page.id))
+    .orderBy(links.sortOrder);
+
+  return (
+    <div>
+      <h1 className="mb-6 text-2xl font-bold text-white">Manage Links</h1>
+      <LinkEditor pageId={page.id} initialLinks={pageLinks} />
+    </div>
+  );
+}

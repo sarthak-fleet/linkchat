@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@/db';
-import { pages, links } from '@/db/schema';
+import { pages, links, users } from '@/db/schema';
 import { GlassCard } from '@/components/public/glass-card';
 import { LinkCard } from '@/components/public/link-card';
 import { ChatWidget } from '@/components/public/chat-widget';
@@ -51,6 +51,7 @@ export default async function PublicPage({ params }: Props) {
   if (!page) notFound();
 
   const pageLinks = await getLinks(page.id);
+  const [user] = await db.select().from(users).where(eq(users.id, page.userId));
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gray-950">
@@ -103,6 +104,13 @@ export default async function PublicPage({ params }: Props) {
       </div>
 
       {page.chatEnabled && <ChatWidget slug={slug} displayName={page.displayName} />}
+      {user?.smProjectId && (
+        <script
+          defer
+          src="https://unpkg.com/@saas-maker/analytics-sdk"
+          data-project={user.smProjectId}
+        />
+      )}
     </main>
   );
 }

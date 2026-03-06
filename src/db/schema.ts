@@ -115,3 +115,20 @@ export const infoBlocks = sqliteTable('infoBlocks', {
   content: text('content').notNull(),
   sortOrder: integer('sortOrder').default(0),
 });
+
+// ── Conversations (chat history) ──────────────────────────────────
+export const conversations = sqliteTable('conversations', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId').notNull().references(() => pages.id, { onDelete: 'cascade' }),
+  visitorId: text('visitorId'), // anonymous session ID from client
+  createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// ── Messages (chat messages) ──────────────────────────────────────
+export const messages = sqliteTable('messages', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text('conversationId').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(), // 'user' | 'assistant'
+  content: text('content').notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});

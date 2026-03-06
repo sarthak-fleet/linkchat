@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -11,6 +11,7 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -22,6 +23,37 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  const saveMessage = useCallback(
+    async (convId: string, role: 'user' | 'assistant', content: string) => {
+      try {
+        await fetch(`/api/chat/${slug}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: convId, role, content }),
+        });
+      } catch {
+        // silently fail — message saving is best-effort
+      }
+    },
+    [slug],
+  );
+
+  async function ensureConversation(): Promise<string> {
+    if (conversationId) return conversationId;
+
+    const res = await fetch(`/api/chat/${slug}/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    if (!res.ok) throw new Error('Failed to create conversation');
+
+    const data = await res.json();
+    setConversationId(data.id);
+    return data.id;
+  }
+
   async function handleSend() {
     const query = input.trim();
     if (!query || loading) return;
@@ -31,6 +63,12 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
     setLoading(true);
 
     try {
+      // Ensure conversation exists
+      const convId = await ensureConversation();
+
+      // Save user message
+      saveMessage(convId, 'user', query);
+
       const res = await fetch(`/api/chat/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,6 +94,7 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let fullResponse = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -74,6 +113,7 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
           try {
             const parsed = JSON.parse(data);
             if (parsed.type === 'chunk' && parsed.content) {
+              fullResponse += parsed.content;
               setMessages((prev) => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
@@ -87,6 +127,11 @@ export function ChatWidget({ slug, displayName }: { slug: string; displayName: s
             // skip unparseable lines
           }
         }
+      }
+
+      // Save assistant response after streaming completes
+      if (fullResponse) {
+        saveMessage(convId, 'assistant', fullResponse);
       }
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Failed to connect to chat service' }]);

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { pages, infoBlocks } from '@/db/schema';
+import { pages, infoBlocks, users } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { ingestDocument } from '@/lib/saasmaker';
+import { MAX_CONTENT_LENGTH } from '@/lib/validation';
 
 export async function GET(
   _req: Request,
@@ -60,6 +62,13 @@ export async function POST(
     );
   }
 
+  if (content.length > MAX_CONTENT_LENGTH) {
+    return NextResponse.json(
+      { error: 'Content too long (max 50,000 chars)' },
+      { status: 400 },
+    );
+  }
+
   // Auto-determine sortOrder
   const existing = await db.query.infoBlocks.findMany({
     where: eq(infoBlocks.pageId, pageId),
@@ -79,6 +88,22 @@ export async function POST(
       sortOrder: nextSort,
     })
     .returning();
+
+  // Ingest into saas-maker if configured
+  const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
+  if (user?.smIndexId) {
+    try {
+      const adminKey = process.env.SAASMAKER_ADMIN_KEY!;
+      const doc = await ingestDocument(adminKey, user.smIndexId, content, {
+        type,
+        title: title || undefined,
+        blockId: block.id,
+      });
+      await db.update(infoBlocks).set({ smDocumentId: doc.id }).where(eq(infoBlocks.id, block.id));
+    } catch {
+      console.error('Failed to ingest info block into saas-maker');
+    }
+  }
 
   return NextResponse.json(block, { status: 201 });
 }

@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { pages, infoBlocks } from '@/db/schema';
+import { pages, infoBlocks, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { InfoEditor } from '@/components/dashboard/info-editor';
 import { ChatSettings } from '@/components/dashboard/chat-settings';
+import { AiKeySettings } from '@/components/dashboard/ai-key-settings';
 
 export default async function MemoryPage() {
   const session = await auth();
@@ -25,6 +26,8 @@ export default async function MemoryPage() {
     );
   }
 
+  const [user] = await db.select({ smApiKey: users.smApiKey }).from(users).where(eq(users.id, session.user.id));
+
   const blocks = await db.query.infoBlocks.findMany({
     where: eq(infoBlocks.pageId, page.id),
     orderBy: [infoBlocks.sortOrder],
@@ -39,6 +42,10 @@ export default async function MemoryPage() {
         </p>
         <InfoEditor pageId={page.id} initialBlocks={blocks} />
       </div>
+
+      <hr className="border-white/10" />
+
+      <AiKeySettings hasKey={!!user?.smApiKey} />
 
       <hr className="border-white/10" />
 

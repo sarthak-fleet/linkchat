@@ -113,6 +113,7 @@ export const infoBlocks = sqliteTable('infoBlocks', {
   type: text('type').notNull(), // 'text' | 'resume' | 'faq'
   title: text('title'),
   content: text('content').notNull(),
+  smDocumentId: text('smDocumentId'),
   sortOrder: integer('sortOrder').default(0),
 });
 

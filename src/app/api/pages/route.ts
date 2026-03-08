@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { isValidSlug, MAX_TITLE_LENGTH } from '@/lib/validation';
 
 export async function GET() {
   const session = await auth();
@@ -28,6 +29,20 @@ export async function POST(req: Request) {
   if (!slug || !displayName) {
     return NextResponse.json(
       { error: 'slug and displayName are required' },
+      { status: 400 },
+    );
+  }
+
+  if (!isValidSlug(slug)) {
+    return NextResponse.json(
+      { error: 'Slug must be 3-50 chars, lowercase alphanumeric and hyphens only' },
+      { status: 400 },
+    );
+  }
+
+  if (displayName.length > MAX_TITLE_LENGTH) {
+    return NextResponse.json(
+      { error: 'Display name too long (max 100 chars)' },
       { status: 400 },
     );
   }

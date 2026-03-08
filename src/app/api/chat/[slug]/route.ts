@@ -2,9 +2,20 @@ import { db } from '@/db';
 import { pages, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { chatCompletion } from '@/lib/saasmaker';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const { ok } = rateLimit(ip);
+  if (!ok) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Retry-After': '60' },
+    });
+  }
+
   const body = await req.json();
   const { query } = body;
 

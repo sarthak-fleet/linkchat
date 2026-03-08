@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { isValidSlug, MAX_BIO_LENGTH } from '@/lib/validation';
 
 export async function PUT(
   req: Request,
@@ -25,6 +26,20 @@ export async function PUT(
 
   const body = await req.json();
   const { slug, displayName, bio, avatarUrl, published } = body;
+
+  if (slug && !isValidSlug(slug)) {
+    return NextResponse.json(
+      { error: 'Slug must be 3-50 chars, lowercase alphanumeric and hyphens only' },
+      { status: 400 },
+    );
+  }
+
+  if (bio && bio.length > MAX_BIO_LENGTH) {
+    return NextResponse.json(
+      { error: 'Bio too long (max 500 chars)' },
+      { status: 400 },
+    );
+  }
 
   // Validate slug uniqueness if changed
   if (slug && slug !== page.slug) {

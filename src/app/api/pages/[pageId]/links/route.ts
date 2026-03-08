@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages, links } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
+import { isValidUrl, MAX_TITLE_LENGTH } from '@/lib/validation';
 
 export async function GET(
   _req: Request,
@@ -57,6 +58,14 @@ export async function POST(
       { error: 'title and url are required' },
       { status: 400 },
     );
+  }
+
+  if (!isValidUrl(url)) {
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+  }
+
+  if (title.length > MAX_TITLE_LENGTH) {
+    return NextResponse.json({ error: 'Title too long (max 100 chars)' }, { status: 400 });
   }
 
   // Auto-increment sortOrder

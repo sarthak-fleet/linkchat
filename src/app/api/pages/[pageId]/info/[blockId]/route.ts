@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { pages, infoBlocks } from '@/db/schema';
+import { pages, infoBlocks, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { deleteDocument } from '@/lib/saasmaker';
 
 export async function DELETE(
   _req: Request,
@@ -21,6 +22,21 @@ export async function DELETE(
 
   if (!page) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  // Look up block for saas-maker cleanup
+  const [block] = await db.select().from(infoBlocks).where(and(eq(infoBlocks.id, blockId), eq(infoBlocks.pageId, pageId)));
+
+  if (block?.smDocumentId) {
+    const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
+    if (user?.smIndexId) {
+      try {
+        const adminKey = process.env.SAASMAKER_ADMIN_KEY!;
+        await deleteDocument(adminKey, user.smIndexId, block.smDocumentId);
+      } catch {
+        console.error('Failed to delete document from saas-maker');
+      }
+    }
   }
 
   await db

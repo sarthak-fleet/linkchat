@@ -11,7 +11,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     sessionsTable: schema.sessions,
     verificationTokensTable: schema.verificationTokens,
   }),
-  providers: [Google],
+  providers: [Google({
+    allowDangerousEmailAccountLinking: true,
+  })],
   callbacks: {
     session({ session, user }) {
       session.user.id = user.id;

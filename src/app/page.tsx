@@ -18,12 +18,21 @@ export default function Home() {
         </p>
         <div className="mt-10 flex items-center justify-center gap-4">
           <Link
-            href="/login"
+            href="/create"
             className="rounded-xl bg-white px-8 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-100 transition"
           >
-            Get Started
+            Start Your Profile
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-xl border border-white/15 bg-white/5 px-8 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+          >
+            Log In
           </Link>
         </div>
+        <p className="mt-4 text-sm text-gray-500">
+          Draft first. Login only when you want to claim your username and save.
+        </p>
       </div>
 
       {/* Testimonials */}

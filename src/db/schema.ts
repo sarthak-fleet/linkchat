@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import type { ThemeConfig } from '@/lib/themes';
 
 // ── Users (extends NextAuth default) ──────────────────────────────────
 export const users = sqliteTable('users', {
@@ -71,11 +72,7 @@ export const pages = sqliteTable('pages', {
   displayName: text('displayName').notNull(),
   bio: text('bio'),
   avatarUrl: text('avatarUrl'),
-  themeConfig: text('themeConfig', { mode: 'json' }).$type<{
-    gradientFrom?: string;
-    gradientTo?: string;
-    accentColor?: string;
-  }>(),
+  themeConfig: text('themeConfig', { mode: 'json' }).$type<ThemeConfig>(),
   published: integer('published', { mode: 'boolean' }).default(false),
   chatEnabled: integer('chatEnabled', { mode: 'boolean' }).default(false),
   chatSystemPrompt: text('chatSystemPrompt'),
@@ -102,6 +99,22 @@ export const links = sqliteTable('links', {
   enabled: integer('enabled', { mode: 'boolean' }).default(true),
 });
 
+// ── Projects (portfolio entries on a profile) ───────────────────────
+export const projects = sqliteTable('projects', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId')
+    .notNull()
+    .references(() => pages.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  url: text('url').notNull(),
+  imageUrl: text('imageUrl'),
+  description: text('description').notNull(),
+  sortOrder: integer('sortOrder').default(0),
+  enabled: integer('enabled', { mode: 'boolean' }).default(true),
+});
+
 // ── Info Blocks (content blocks for AI chat) ─────────────────────────
 export const infoBlocks = sqliteTable('infoBlocks', {
   id: text('id')
@@ -115,6 +128,60 @@ export const infoBlocks = sqliteTable('infoBlocks', {
   content: text('content').notNull(),
   smDocumentId: text('smDocumentId'),
   sortOrder: integer('sortOrder').default(0),
+});
+
+// ── Page Sections (modular public blocks) ────────────────────────────
+export const pageSections = sqliteTable('pageSections', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId')
+    .notNull()
+    .references(() => pages.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  title: text('title').notNull(),
+  content: text('content'),
+  buttonLabel: text('buttonLabel'),
+  buttonUrl: text('buttonUrl'),
+  sortOrder: integer('sortOrder').default(0),
+  enabled: integer('enabled', { mode: 'boolean' }).default(true),
+});
+
+// ── Contact Submissions (public leads) ───────────────────────────────
+export const contactSubmissions = sqliteTable('contactSubmissions', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId')
+    .notNull()
+    .references(() => pages.id, { onDelete: 'cascade' }),
+  sectionId: text('sectionId'),
+  visitorId: text('visitorId'),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  message: text('message').notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
+});
+
+// ── Page Events (native analytics) ───────────────────────────────────
+export const pageEvents = sqliteTable('pageEvents', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId')
+    .notNull()
+    .references(() => pages.id, { onDelete: 'cascade' }),
+  visitorId: text('visitorId'),
+  eventType: text('eventType').notNull(),
+  resourceType: text('resourceType'),
+  resourceId: text('resourceId'),
+  resourceLabel: text('resourceLabel'),
+  metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 });
 
 // ── Conversations (chat history) ──────────────────────────────────

@@ -3,7 +3,13 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { isValidSlug, MAX_TITLE_LENGTH } from '@/lib/validation';
+import {
+  isValidSlug,
+  isValidUrl,
+  MAX_BIO_LENGTH,
+  MAX_TITLE_LENGTH,
+} from '@/lib/validation';
+import { isThemePresetId, resolveThemeConfig } from '@/lib/themes';
 
 export async function GET() {
   const session = await auth();
@@ -24,7 +30,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { slug, displayName, bio } = body;
+  const { slug, displayName, bio, avatarUrl, themeConfig } = body;
 
   if (!slug || !displayName) {
     return NextResponse.json(
@@ -44,6 +50,44 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: 'Display name too long (max 100 chars)' },
       { status: 400 },
+    );
+  }
+
+  if (bio && bio.length > MAX_BIO_LENGTH) {
+    return NextResponse.json(
+      { error: 'Bio too long (max 500 chars)' },
+      { status: 400 },
+    );
+  }
+
+  if (avatarUrl && (typeof avatarUrl !== 'string' || !isValidUrl(avatarUrl))) {
+    return NextResponse.json(
+      { error: 'Avatar URL must be a valid URL' },
+      { status: 400 },
+    );
+  }
+
+  let normalizedThemeConfig = resolveThemeConfig();
+  if (themeConfig !== undefined && themeConfig !== null) {
+    if (typeof themeConfig !== 'object' || Array.isArray(themeConfig)) {
+      return NextResponse.json(
+        { error: 'themeConfig must be an object' },
+        { status: 400 },
+      );
+    }
+
+    const presetId =
+      typeof themeConfig.presetId === 'string' ? themeConfig.presetId : '';
+
+    if (presetId && !isThemePresetId(presetId)) {
+      return NextResponse.json(
+        { error: 'Invalid theme preset' },
+        { status: 400 },
+      );
+    }
+
+    normalizedThemeConfig = resolveThemeConfig(
+      presetId ? { presetId } : undefined,
     );
   }
 
@@ -67,6 +111,8 @@ export async function POST(req: Request) {
       slug,
       displayName,
       bio: bio ?? null,
+      avatarUrl: avatarUrl?.trim() || null,
+      themeConfig: normalizedThemeConfig,
     })
     .returning();
 

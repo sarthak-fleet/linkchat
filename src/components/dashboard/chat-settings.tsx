@@ -1,20 +1,27 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  CHAT_POSITIONS,
+  type ChatPosition,
+} from '@/lib/themes';
 
 interface ChatSettingsProps {
   pageId: string;
   initialChatEnabled: boolean;
   initialSystemPrompt: string;
+  initialChatPosition: ChatPosition;
 }
 
 export function ChatSettings({
   pageId,
   initialChatEnabled,
   initialSystemPrompt,
+  initialChatPosition,
 }: ChatSettingsProps) {
   const [chatEnabled, setChatEnabled] = useState(initialChatEnabled);
   const [systemPrompt, setSystemPrompt] = useState(initialSystemPrompt);
+  const [chatPosition, setChatPosition] = useState(initialChatPosition);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -26,7 +33,11 @@ export function ChatSettings({
       const res = await fetch(`/api/pages/${pageId}/chat-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatEnabled, chatSystemPrompt: systemPrompt }),
+        body: JSON.stringify({
+          chatEnabled,
+          chatSystemPrompt: systemPrompt,
+          chatPosition,
+        }),
       });
 
       if (!res.ok) {
@@ -74,6 +85,34 @@ export function ChatSettings({
         </div>
 
         {/* System Prompt */}
+        <div>
+          <label
+            htmlFor="chatPosition"
+            className="mb-2 block text-sm font-medium text-white"
+          >
+            Chat Position
+          </label>
+          <p className="mb-2 text-xs text-gray-400">
+            Keep the widget anchored at the bottom, with your preferred side.
+          </p>
+          <select
+            id="chatPosition"
+            value={chatPosition}
+            onChange={(e) => setChatPosition(e.target.value as ChatPosition)}
+            className="w-full rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-sm text-white backdrop-blur-sm transition focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20"
+          >
+            {CHAT_POSITIONS.map((position) => (
+              <option
+                key={position.value}
+                value={position.value}
+                className="bg-gray-900"
+              >
+                {position.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <label
             htmlFor="systemPrompt"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SaasMakerAnalytics } from "@/components/SaasMakerAnalytics";
 import { SaaSMakerFeedback } from "@/components/saasmaker-feedback";
+import { PageAnalyticsTracker } from "@/components/public/page-analytics-tracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,6 +32,7 @@ export default function RootLayout({
       >
         <SaasMakerAnalytics />
         <SaaSMakerFeedback />
+        <PageAnalyticsTracker />
         {children}
       </body>
     </html>

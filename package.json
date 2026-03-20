@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
+    "@aws-sdk/client-s3": "^3.1011.0",
     "@libsql/client": "^0.17.0",
     "@saas-maker/changelog-widget": "0.2.0",
     "@saas-maker/feedback": "0.2.0",

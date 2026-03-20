@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { isChatPosition, resolveThemeConfig } from '@/lib/themes';
 
 export async function PUT(
   req: Request,
@@ -24,7 +25,24 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const { chatEnabled, chatSystemPrompt } = body;
+  const { chatEnabled, chatSystemPrompt, chatPosition } = body;
+
+  if (
+    chatPosition !== undefined &&
+    chatPosition !== null &&
+    chatPosition !== '' &&
+    (typeof chatPosition !== 'string' || !isChatPosition(chatPosition))
+  ) {
+    return NextResponse.json(
+      { error: 'Invalid chat position' },
+      { status: 400 },
+    );
+  }
+
+  const nextThemeConfig = resolveThemeConfig({
+    ...page.themeConfig,
+    ...(chatPosition ? { chatPosition } : {}),
+  });
 
   const [updated] = await db
     .update(pages)
@@ -34,6 +52,7 @@ export async function PUT(
         chatSystemPrompt !== undefined
           ? chatSystemPrompt
           : page.chatSystemPrompt,
+      themeConfig: nextThemeConfig,
       updatedAt: new Date(),
     })
     .where(eq(pages.id, pageId))

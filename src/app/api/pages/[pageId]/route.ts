@@ -3,7 +3,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { isValidSlug, MAX_BIO_LENGTH } from '@/lib/validation';
+import { isValidSlug, isValidUrl, MAX_BIO_LENGTH } from '@/lib/validation';
+import { isThemePresetId, resolveThemeConfig } from '@/lib/themes';
 
 export async function PUT(
   req: Request,
@@ -25,7 +26,7 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const { slug, displayName, bio, avatarUrl, published } = body;
+  const { slug, displayName, bio, avatarUrl, published, themeConfig } = body;
 
   if (slug && !isValidSlug(slug)) {
     return NextResponse.json(
@@ -39,6 +40,43 @@ export async function PUT(
       { error: 'Bio too long (max 500 chars)' },
       { status: 400 },
     );
+  }
+
+  if (avatarUrl !== undefined && avatarUrl !== null && avatarUrl !== '') {
+    if (typeof avatarUrl !== 'string' || !isValidUrl(avatarUrl)) {
+      return NextResponse.json(
+        { error: 'Avatar URL must be a valid URL' },
+        { status: 400 },
+      );
+    }
+  }
+
+  let normalizedThemeConfig = page.themeConfig ?? resolveThemeConfig();
+  if (themeConfig !== undefined) {
+    if (themeConfig !== null && (typeof themeConfig !== 'object' || Array.isArray(themeConfig))) {
+      return NextResponse.json(
+        { error: 'themeConfig must be an object' },
+        { status: 400 },
+      );
+    }
+
+    if (themeConfig === null) {
+      normalizedThemeConfig = resolveThemeConfig();
+    } else {
+      const presetId =
+        typeof themeConfig.presetId === 'string' ? themeConfig.presetId : '';
+
+      if (presetId && !isThemePresetId(presetId)) {
+        return NextResponse.json(
+          { error: 'Invalid theme preset' },
+          { status: 400 },
+        );
+      }
+
+      normalizedThemeConfig = resolveThemeConfig(
+        presetId ? { presetId } : page.themeConfig,
+      );
+    }
   }
 
   // Validate slug uniqueness if changed
@@ -60,7 +98,8 @@ export async function PUT(
       slug: slug ?? page.slug,
       displayName: displayName ?? page.displayName,
       bio: bio !== undefined ? bio : page.bio,
-      avatarUrl: avatarUrl !== undefined ? avatarUrl : page.avatarUrl,
+      avatarUrl: avatarUrl !== undefined ? avatarUrl?.trim() || null : page.avatarUrl,
+      themeConfig: normalizedThemeConfig,
       published: published !== undefined ? published : page.published,
       updatedAt: new Date(),
     })

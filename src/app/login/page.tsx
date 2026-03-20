@@ -1,6 +1,21 @@
 import { signIn } from '@/lib/auth';
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+function getSafeRedirectPath(nextPath: string | undefined) {
+  if (!nextPath || !nextPath.startsWith('/') || nextPath.startsWith('//')) {
+    return '/dashboard';
+  }
+
+  return nextPath;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { next } = await searchParams;
+  const redirectTo = getSafeRedirectPath(next);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-950 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-white/5 p-8 shadow-xl backdrop-blur-xl">
@@ -15,7 +30,7 @@ export default function LoginPage() {
           <form
             action={async () => {
               'use server';
-              await signIn('google', { redirectTo: '/dashboard' });
+              await signIn('google', { redirectTo });
             }}
           >
             <button
@@ -43,7 +58,6 @@ export default function LoginPage() {
               Continue with Google
             </button>
           </form>
-
         </div>
       </div>
     </div>

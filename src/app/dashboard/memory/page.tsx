@@ -53,6 +53,7 @@ export default async function MemoryPage() {
         pageId={page.id}
         initialChatEnabled={page.chatEnabled ?? false}
         initialSystemPrompt={page.chatSystemPrompt ?? ''}
+        initialChatPosition={page.themeConfig?.chatPosition ?? 'bottom-right'}
       />
     </div>
   );

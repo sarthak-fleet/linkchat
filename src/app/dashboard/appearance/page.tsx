@@ -23,6 +23,7 @@ export default async function AppearancePage() {
               displayName: page.displayName,
               bio: page.bio,
               avatarUrl: page.avatarUrl,
+              themeConfig: page.themeConfig,
               published: page.published,
             }
           : null

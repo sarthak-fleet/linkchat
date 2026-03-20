@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { pages, links } from '@/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { isValidUrl, MAX_TITLE_LENGTH } from '@/lib/validation';
 
 export async function GET(
@@ -51,7 +51,9 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await req.json();
-  const { title, url } = body;
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const url = typeof body.url === 'string' ? body.url.trim() : '';
+  const icon = typeof body.icon === 'string' ? body.icon.trim() : '';
 
   if (!title || !url) {
     return NextResponse.json(
@@ -84,9 +86,80 @@ export async function POST(
       pageId,
       title,
       url,
+      icon: icon || null,
       sortOrder: nextOrder,
     })
     .returning();
 
   return NextResponse.json(link, { status: 201 });
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ pageId: string }> },
+) {
+  const { pageId } = await params;
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const [page] = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.id, pageId), eq(pages.userId, session.user.id)));
+
+  if (!page) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const orderedLinkIds = Array.isArray(body.orderedLinkIds)
+    ? body.orderedLinkIds.filter(
+        (value: unknown): value is string => typeof value === 'string',
+      )
+    : [];
+
+  if (orderedLinkIds.length === 0) {
+    return NextResponse.json(
+      { error: 'orderedLinkIds are required' },
+      { status: 400 },
+    );
+  }
+
+  const currentLinks = await db
+    .select({ id: links.id })
+    .from(links)
+    .where(eq(links.pageId, pageId));
+
+  const currentLinkIds = new Set(currentLinks.map((link) => link.id));
+  const requestedLinkIds = new Set(orderedLinkIds);
+
+  if (
+    currentLinks.length !== orderedLinkIds.length ||
+    requestedLinkIds.size !== orderedLinkIds.length ||
+    orderedLinkIds.some((id: string) => !currentLinkIds.has(id))
+  ) {
+    return NextResponse.json(
+      { error: 'orderedLinkIds must match the page links exactly' },
+      { status: 400 },
+    );
+  }
+
+  await db.transaction(async (tx) => {
+    for (let index = 0; index < orderedLinkIds.length; index += 1) {
+      await tx
+        .update(links)
+        .set({ sortOrder: index })
+        .where(and(eq(links.pageId, pageId), eq(links.id, orderedLinkIds[index])));
+    }
+  });
+
+  const reorderedLinks = await db
+    .select()
+    .from(links)
+    .where(eq(links.pageId, pageId))
+    .orderBy(asc(links.sortOrder));
+
+  return NextResponse.json(reorderedLinks);
 }

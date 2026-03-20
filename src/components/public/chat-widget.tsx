@@ -11,6 +11,28 @@ interface Message {
 
 type ChatPosition = 'bottom-right' | 'bottom-left';
 
+function getButtonTextColor(color: string) {
+  const normalized = color.trim().replace('#', '');
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : normalized;
+
+  if (!/^[\da-fA-F]{6}$/.test(hex)) {
+    return '#111827';
+  }
+
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.62 ? '#111827' : '#ffffff';
+}
+
 export function ChatWidget({
   slug,
   displayName,
@@ -31,6 +53,7 @@ export function ChatWidget({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const visitorIdRef = useRef<string | null>(null);
+  const accentTextColor = getButtonTextColor(accentColor);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -168,17 +191,23 @@ export function ChatWidget({
     }
   }
 
-  const positionClass = position === 'bottom-left' ? 'left-6' : 'right-6';
+  const launcherPositionClass =
+    position === 'bottom-left' ? 'left-4 sm:left-6' : 'right-4 sm:right-6';
+  const panelPositionClass =
+    position === 'bottom-left'
+      ? 'left-3 right-3 sm:right-auto sm:left-6 sm:w-[380px]'
+      : 'left-3 right-3 sm:left-auto sm:right-6 sm:w-[380px]';
 
   return (
     <>
       <button
         onClick={() => setOpen((current) => !current)}
-        className={`fixed bottom-6 ${positionClass} z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 text-2xl shadow-lg backdrop-blur-xl transition-transform hover:scale-110 active:scale-95`}
+        className={`fixed bottom-4 ${launcherPositionClass} z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 text-2xl shadow-lg backdrop-blur-xl transition-transform hover:scale-110 active:scale-95 sm:bottom-6`}
         aria-label={open ? 'Close chat' : 'Open chat'}
         style={{
           backgroundColor: `${accentColor}f2`,
           boxShadow: `0 18px 44px -18px ${accentColor}`,
+          color: accentTextColor,
         }}
       >
         {open ? '\u2715' : '\uD83D\uDCAC'}
@@ -186,7 +215,7 @@ export function ChatWidget({
 
       {open && (
         <div
-          className={`fixed bottom-24 ${positionClass} z-50 flex h-[520px] w-[380px] flex-col overflow-hidden rounded-2xl border border-white/20 bg-gray-900/80 shadow-2xl backdrop-blur-xl`}
+          className={`fixed bottom-20 ${panelPositionClass} z-50 flex h-[min(520px,calc(100vh-6rem))] w-auto flex-col overflow-hidden rounded-2xl border border-white/20 bg-gray-900/80 shadow-2xl backdrop-blur-xl sm:bottom-24`}
         >
           <div className="border-b border-white/10 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -236,12 +265,12 @@ export function ChatWidget({
                     <div
                       className={`max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
                         msg.role === 'user'
-                          ? 'text-white'
+                          ? ''
                           : 'border border-white/10 bg-white/5 text-white/90'
                       }`}
                       style={
                         msg.role === 'user'
-                          ? { backgroundColor: accentColor }
+                          ? { backgroundColor: accentColor, color: accentTextColor }
                           : undefined
                       }
                     >
@@ -266,13 +295,13 @@ export function ChatWidget({
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Type a message..."
                   disabled={loading}
-                  className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-blue-500"
+                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-blue-500"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40"
-                  style={{ backgroundColor: accentColor }}
+                  className="shrink-0 rounded-lg border border-black/10 px-3 py-2 text-sm font-medium transition-opacity disabled:opacity-40"
+                  style={{ backgroundColor: accentColor, color: accentTextColor }}
                 >
                   Send
                 </button>

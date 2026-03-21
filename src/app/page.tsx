@@ -7,7 +7,7 @@ const fraunces = Fraunces({
   weight: ['600', '700'],
 });
 
-const signalPills = ['Projects', 'AI chat', 'Themes', 'Sections', 'Analytics beta', 'Lead capture'];
+const signalPills = ['Projects', 'AI chat', 'Themes', 'Sections', 'Analytics beta', 'Custom domains soon'];
 
 const narrativeCards = [
   {
@@ -60,6 +60,19 @@ const featureCards = [
     title: 'Uploads and AI memory',
     description:
       'Upload avatars and project images to R2, then train the chat assistant with memory blocks that reflect your actual work.',
+  },
+];
+
+const upcomingItems = [
+  {
+    title: 'Custom domains',
+    description:
+      'Connect a domain you already own and publish the same profile from your own hostname. Planned next.',
+  },
+  {
+    title: 'Safer rollout path',
+    description:
+      'The implementation is being scoped around Vercel domain APIs, host-based routing, and proper request-level tests.',
   },
 ];
 
@@ -420,6 +433,34 @@ export default function Home() {
               <p className="mt-3 text-sm leading-7 text-slate-300">{card.description}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-8 rounded-[30px] border border-amber-200/12 bg-gradient-to-r from-amber-300/10 via-white/[0.04] to-cyan-300/10 p-6 backdrop-blur-xl">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-amber-100/80">
+                Coming Soon
+              </p>
+              <h3 className={`${fraunces.className} mt-3 text-2xl text-white sm:text-3xl`}>
+                Custom domains are next on the roadmap.
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-slate-200">
+                LinkChat already handles the page, analytics, inbox, and AI layer. The next step is letting people publish that same profile on their own domain.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:w-[520px]">
+              {upcomingItems.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4"
+                >
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

@@ -135,6 +135,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 **Done:**
 - Full auth flow (Google OAuth)
+- Public marketing landing page with persistent public header
+- Guest draft preview flow before login / claim
 - Page creation with slug, display name, bio, avatar
 - Link management (CRUD, sorting, enable/disable)
 - Project portfolio (CRUD with image uploads to R2)
@@ -147,11 +149,14 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 - Rate limiting on chat API (20 req/min/IP)
 - Input validation on all API endpoints
 - SaaS Maker widgets (feedback, testimonials, changelog, analytics)
+- Mobile-responsive public pages and dashboard shell
+- Public production deployment on Vercel
 
 **Not done:**
 - No tests (unit, integration, or e2e)
 - No pre-push/pre-pull hooks
 - No proper DB migrations (uses runtime `CREATE TABLE IF NOT EXISTS` for some tables)
-- No custom domain support
+- No custom domain support yet
+  - Recommended direction: keep hosting on Vercel, add a `pageDomains` table, use Vercel domain APIs for add/verify/remove, and resolve public pages by `Host` header
 - No multi-page support (one page per user)
 - Rate limiter is in-memory (resets on deploy)

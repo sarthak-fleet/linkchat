@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getPageBySlug, getPageLinks, getPageProjects, getPageSections, getPageUser, getReadyPages } from './_lib/get-page-data';
+import { getFullPageData } from './_lib/get-page-data';
 import { GlassCard } from '@/components/public/glass-card';
 import { LinkCard } from '@/components/public/link-card';
 import { ProjectCard } from '@/components/public/project-card';
@@ -16,19 +16,12 @@ type Props = { params: Promise<{ slug: string }> };
 
 export default async function ProfilePage({ params }: Props) {
   const { slug } = await params;
-  const page = await getPageBySlug(slug);
-  if (!page) notFound();
+  const data = await getFullPageData(slug);
+  if (!data) notFound();
 
-  const [pageLinks, pageProjects, publicSections, user, readyPages] = await Promise.all([
-    getPageLinks(page.id),
-    getPageProjects(page.id),
-    getPageSections(page.id),
-    getPageUser(page.userId),
-    getReadyPages(page.id),
-  ]);
+  const { page, user, links: pageLinks, projects: pageProjects, sections: publicSections, readyPages } = data;
   const theme = resolveThemeConfig(page.themeConfig);
 
-  // Only show tabs for pages that are both enabled AND have generated content
   const enabledPages = {
     encyclopedia: (page.encyclopediaEnabled ?? false) && readyPages.has('encyclopedia'),
     roast: (page.roastEnabled ?? false) && readyPages.has('roast'),

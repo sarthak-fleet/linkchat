@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getPageBySlug } from './_lib/get-page-data';
+import { getFullPageData } from './_lib/get-page-data';
 import type { Metadata } from 'next';
 
 export const runtime = 'edge';
@@ -12,9 +12,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getPageBySlug(slug);
-  if (!page) return { title: 'Not Found' };
+  const data = await getFullPageData(slug);
+  if (!data) return { title: 'Not Found' };
 
+  const { page } = data;
   return {
     title: page.displayName,
     description: page.bio ?? `${page.displayName}'s links`,
@@ -28,8 +29,8 @@ export async function generateMetadata({
 
 export default async function SlugLayout({ params, children }: Props) {
   const { slug } = await params;
-  const page = await getPageBySlug(slug);
-  if (!page) notFound();
+  const data = await getFullPageData(slug);
+  if (!data) notFound();
 
   return <>{children}</>;
 }

@@ -22,7 +22,7 @@
     "@opennextjs/cloudflare": "^1.18.0",
     "@saas-maker/changelog-widget": "0.2.0",
     "@saas-maker/feedback": "0.2.0",
-    "@saas-maker/sdk": "0.2.0",
+    "@saas-maker/sdk": "0.3.1",
     "@saas-maker/testimonials": "0.2.0",
     "drizzle-orm": "^0.45.1",
     "html-to-image": "^1.11.13",

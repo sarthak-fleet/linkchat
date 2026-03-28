@@ -1,5 +1,6 @@
 import { db, ensureProjectsTable } from '@/db';
 import { pages, users, infoBlocks, generatedPages } from '@/db/schema';
+import type { PageSettings } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateCompletion, parseAIResponse } from '@/lib/saasmaker';
 import { ROAST_SYSTEM_PROMPT } from '@/lib/ai-prompts';
@@ -62,20 +63,36 @@ export async function POST(
     .from(infoBlocks)
     .where(eq(infoBlocks.pageId, pageId));
 
+  // Read page settings for roast customization
+  const settings = (page.pageSettings as PageSettings | null)?.roast;
+
   const context = [
     `Name: ${page.displayName}`,
     `Bio: ${page.bio || 'No bio provided'}`,
     `Links: ${linkTitles.join(', ') || 'None'}`,
     `Projects: ${projectTitles.join(', ') || 'None'}`,
     ...blocks.map((b) => `${b.title || b.type}: ${b.content}`),
+    ...(settings?.context ? [`Additional context from the person: ${settings.context}`] : []),
   ].join('\n\n');
+
+  // Build system prompt with tone preference
+  let systemPrompt = ROAST_SYSTEM_PROMPT;
+  if (settings?.tone && settings.tone !== 'Savage') {
+    systemPrompt += `\n\nIMPORTANT: Write the roast in a "${settings.tone}" tone. ${
+      settings.tone === 'Friendly'
+        ? 'Keep it light-hearted and good-natured. Tease rather than roast.'
+        : settings.tone === 'Sarcastic'
+          ? 'Be dripping with sarcasm and irony. Use dry wit and deadpan humor.'
+          : ''
+    }`;
+  }
 
   try {
     const raw = await generateCompletion(
       user.smApiKey,
       user.smIndexId,
       `Roast this person based on their profile:\n\n${context}`,
-      ROAST_SYSTEM_PROMPT
+      systemPrompt
     );
 
     const roast = parseAIResponse<RoastContent>(raw);

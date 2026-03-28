@@ -1,5 +1,6 @@
 import { db, ensureProjectsTable } from '@/db';
 import { pages, users, infoBlocks, links, projects, generatedPages } from '@/db/schema';
+import type { PageSettings } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { generateCompletion, parseAIResponse } from '@/lib/saasmaker';
 import { ENCYCLOPEDIA_SYSTEM_PROMPT } from '@/lib/ai-prompts';
@@ -30,20 +31,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ pageId:
   const pageLinks = await db.select().from(links).where(eq(links.pageId, pageId)).orderBy(asc(links.sortOrder));
   const pageProjects = await db.select().from(projects).where(eq(projects.pageId, pageId)).orderBy(asc(projects.sortOrder));
 
+  // Read page settings for encyclopedia customization
+  const settings = (page.pageSettings as PageSettings | null)?.encyclopedia;
+
   const context = [
     `Name: ${page.displayName}`,
     `Bio: ${page.bio || 'No bio'}`,
     `Links: ${pageLinks.map((l) => `${l.title} (${l.url})`).join(', ') || 'None'}`,
     `Projects: ${pageProjects.map((p) => `${p.title}: ${p.description}`).join('\n') || 'None'}`,
     ...blocks.map((b) => `${b.title || b.type}: ${b.content}`),
+    ...(settings?.context ? [`Additional context from the person: ${settings.context}`] : []),
   ].join('\n\n');
+
+  // Build system prompt with style preference
+  let systemPrompt = ENCYCLOPEDIA_SYSTEM_PROMPT;
+  if (settings?.style && settings.style !== 'Formal Wikipedia') {
+    systemPrompt += `\n\nIMPORTANT: Write in a "${settings.style}" style. ${
+      settings.style === 'Casual'
+        ? 'Use a conversational, relaxed tone. Less formal than Wikipedia — more like an entertaining blog post in encyclopedia format.'
+        : settings.style === 'Academic'
+          ? 'Use rigorous academic language with proper citations-style references, formal analysis, and scholarly framing.'
+          : ''
+    }`;
+  }
 
   try {
     const raw = await generateCompletion(
       user.smApiKey,
       user.smIndexId,
       `Write a Wikipedia-style encyclopedia article about this person:\n\n${context}`,
-      ENCYCLOPEDIA_SYSTEM_PROMPT,
+      systemPrompt,
     );
 
     const encyclopedia = parseAIResponse<EncyclopediaContent>(raw);

@@ -1,6 +1,26 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Link {
   id: string;
@@ -10,6 +30,120 @@ interface Link {
   icon: string | null;
   sortOrder: number | null;
   enabled: boolean | null;
+}
+
+function DragHandle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="shrink-0"
+    >
+      <circle cx="5" cy="3" r="1.5" />
+      <circle cx="11" cy="3" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" />
+      <circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="13" r="1.5" />
+      <circle cx="11" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
+function LinkCard({
+  link,
+  index,
+  onRemove,
+  isOverlay,
+}: {
+  link: Link;
+  index: number;
+  onRemove: (id: string) => void;
+  isOverlay?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: link.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  if (isOverlay) {
+    return (
+      <div className="flex flex-col gap-4 rounded-2xl border border-white/30 bg-gray-900/90 p-4 shadow-2xl backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="text-white/60 cursor-grabbing">
+            <DragHandle />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-300">
+                #{index + 1}
+              </span>
+              <p className="truncate font-medium text-white">{link.title}</p>
+            </div>
+            <p className="truncate text-sm text-gray-400">{link.url}</p>
+          </div>
+        </div>
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          <button
+            type="button"
+            className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition sm:flex-none"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex flex-col gap-4 rounded-2xl border bg-white/5 p-4 backdrop-blur-xl transition sm:flex-row sm:items-center sm:justify-between ${
+        isDragging ? 'border-white/40 opacity-50' : 'border-white/20'
+      }`}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <button
+          type="button"
+          className="text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing touch-none"
+          aria-label="Drag to reorder"
+          {...attributes}
+          {...listeners}
+        >
+          <DragHandle />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-300">
+              #{index + 1}
+            </span>
+            <p className="truncate font-medium text-white">{link.title}</p>
+          </div>
+          <p className="truncate text-sm text-gray-400">{link.url}</p>
+        </div>
+      </div>
+      <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+        <button
+          type="button"
+          onClick={() => onRemove(link.id)}
+          className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function LinkEditor({
@@ -27,33 +161,28 @@ export function LinkEditor({
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [reordering, setReordering] = useState(false);
-  const [draggingLinkId, setDraggingLinkId] = useState<string | null>(null);
-  const [dropTargetLinkId, setDropTargetLinkId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const activeLink = activeId
+    ? links.find((l) => l.id === activeId) ?? null
+    : null;
+  const activeIndex = activeId
+    ? links.findIndex((l) => l.id === activeId)
+    : -1;
 
   function normalizeLinks(items: Link[]) {
     return [...items].sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     );
-  }
-
-  function reorderLinks(items: Link[], activeId: string, targetId: string) {
-    const nextLinks = [...items];
-    const currentIndex = nextLinks.findIndex((link) => link.id === activeId);
-    const targetIndex = nextLinks.findIndex((link) => link.id === targetId);
-
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      currentIndex === targetIndex
-    ) {
-      return items;
-    }
-
-    const [movedLink] = nextLinks.splice(currentIndex, 1);
-    nextLinks.splice(targetIndex, 0, movedLink);
-
-    return nextLinks;
   }
 
   async function persistOrder(nextLinks: Link[]) {
@@ -73,59 +202,30 @@ export function LinkEditor({
     setLinks(updatedLinks);
   }
 
-  async function moveLink(linkId: string, direction: -1 | 1) {
-    const currentIndex = links.findIndex((link) => link.id === linkId);
-    const targetIndex = currentIndex + direction;
-
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      targetIndex >= links.length ||
-      reordering
-    ) {
-      return;
-    }
-
-    const previousLinks = [...links];
-    const nextLinks = [...links];
-    const [movedLink] = nextLinks.splice(currentIndex, 1);
-    nextLinks.splice(targetIndex, 0, movedLink);
-
-    setLinks(nextLinks);
-    setReordering(true);
-
-    try {
-      await persistOrder(nextLinks);
-    } catch {
-      setLinks(previousLinks);
-      alert('Failed to reorder links');
-    } finally {
-      setReordering(false);
-    }
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
   }
 
-  async function dropLink(targetLinkId: string) {
-    if (!draggingLinkId || draggingLinkId === targetLinkId || reordering) {
-      setDraggingLinkId(null);
-      setDropTargetLinkId(null);
-      return;
-    }
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
 
-    const previousLinks = links;
-    const nextLinks = reorderLinks(links, draggingLinkId, targetLinkId);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
+    const oldIndex = links.findIndex((l) => l.id === active.id);
+    const newIndex = links.findIndex((l) => l.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const previousLinks = [...links];
+    const nextLinks = arrayMove(links, oldIndex, newIndex);
     setLinks(nextLinks);
-    setReordering(true);
 
     try {
       await persistOrder(nextLinks);
     } catch {
       setLinks(previousLinks);
       alert('Failed to reorder links');
-    } finally {
-      setReordering(false);
-      setDraggingLinkId(null);
-      setDropTargetLinkId(null);
     }
   }
 
@@ -174,7 +274,7 @@ export function LinkEditor({
       <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
         <h2 className="mb-4 text-lg font-semibold text-white">Add a Link</h2>
         <p className="mb-4 text-sm text-gray-400">
-          Drag cards to reorder them or use the move buttons.
+          Drag the handle to reorder your links.
         </p>
         <form onSubmit={addLink} className="flex flex-col gap-3 sm:flex-row">
           <input
@@ -211,72 +311,39 @@ export function LinkEditor({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {links.map((link, index) => (
-            <div
-              key={link.id}
-              draggable={!reordering}
-              onDragStart={() => setDraggingLinkId(link.id)}
-              onDragEnd={() => {
-                setDraggingLinkId(null);
-                setDropTargetLinkId(null);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (draggingLinkId && draggingLinkId !== link.id) {
-                  setDropTargetLinkId(link.id);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                void dropLink(link.id);
-              }}
-              className={`flex flex-col gap-4 rounded-2xl border bg-white/5 p-4 backdrop-blur-xl transition sm:flex-row sm:items-center sm:justify-between ${
-                draggingLinkId === link.id
-                  ? 'border-white/40 opacity-60'
-                  : dropTargetLinkId === link.id
-                    ? 'border-blue-300/60 bg-white/10'
-                    : 'border-white/20'
-              } ${reordering ? 'cursor-wait' : 'cursor-grab active:cursor-grabbing'}`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-300">
-                    #{index + 1}
-                  </span>
-                  <p className="truncate font-medium text-white">{link.title}</p>
-                </div>
-                <p className="truncate text-sm text-gray-400">{link.url}</p>
-              </div>
-              <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => moveLink(link.id, -1)}
-                  disabled={index === 0 || reordering}
-                  className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                >
-                  Move up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveLink(link.id, 1)}
-                  disabled={index === links.length - 1 || reordering}
-                  className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                >
-                  Move down
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeLink(link.id)}
-                  disabled={reordering}
-                  className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                >
-                  Remove
-                </button>
-              </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={links.map((l) => l.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {links.map((link, index) => (
+                <LinkCard
+                  key={link.id}
+                  link={link}
+                  index={index}
+                  onRemove={removeLink}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+          <DragOverlay>
+            {activeLink ? (
+              <LinkCard
+                link={activeLink}
+                index={activeIndex}
+                onRemove={() => {}}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );

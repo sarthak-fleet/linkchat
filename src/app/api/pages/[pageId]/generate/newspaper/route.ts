@@ -1,5 +1,6 @@
 import { db, ensureProjectsTable } from '@/db';
 import { pages, users, infoBlocks, generatedPages } from '@/db/schema';
+import type { PageSettings } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateCompletion, parseAIResponse } from '@/lib/saasmaker';
 import { NEWSPAPER_SYSTEM_PROMPT } from '@/lib/ai-prompts';
@@ -46,18 +47,43 @@ export async function POST(
     .from(infoBlocks)
     .where(eq(infoBlocks.pageId, pageId));
 
+  // Read page settings for newspaper customization
+  const settings = (page.pageSettings as PageSettings | null)?.newspaper;
+
   const context = [
     `Name: ${page.displayName}`,
     `Bio: ${page.bio || 'No bio'}`,
     ...blocks.map((b) => `${b.title || b.type}: ${b.content}`),
+    ...(settings?.context ? [`Additional context from the person: ${settings.context}`] : []),
   ].join('\n\n');
+
+  // Build system prompt with tone and name preferences
+  let systemPrompt = NEWSPAPER_SYSTEM_PROMPT;
+  const promptAdditions: string[] = [];
+
+  if (settings?.name) {
+    promptAdditions.push(`Use "${settings.name}" as the newspaper masthead name instead of generating one.`);
+  }
+  if (settings?.tone && settings.tone !== 'Prestigious') {
+    promptAdditions.push(`Write in a "${settings.tone}" newspaper tone. ${
+      settings.tone === 'Tabloid'
+        ? 'Use sensational headlines, exclamation marks, and dramatic language like a tabloid paper.'
+        : settings.tone === 'Local'
+          ? 'Write in a warm, community-focused local newspaper style. Make it feel homey and personal.'
+          : ''
+    }`);
+  }
+
+  if (promptAdditions.length > 0) {
+    systemPrompt += '\n\nIMPORTANT: ' + promptAdditions.join(' ');
+  }
 
   try {
     const raw = await generateCompletion(
       user.smApiKey,
       user.smIndexId,
       `Write a newspaper front page about this person:\n\n${context}`,
-      NEWSPAPER_SYSTEM_PROMPT
+      systemPrompt
     );
 
     const newspaper = parseAIResponse<NewspaperContent>(raw);

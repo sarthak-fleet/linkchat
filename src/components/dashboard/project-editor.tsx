@@ -2,6 +2,25 @@
 
 import { useState } from 'react';
 import { ImageUploadField } from '@/components/dashboard/image-upload-field';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Project {
   id: string;
@@ -12,6 +31,136 @@ interface Project {
   description: string;
   sortOrder: number | null;
   enabled: boolean | null;
+}
+
+function DragHandle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="shrink-0"
+    >
+      <circle cx="5" cy="3" r="1.5" />
+      <circle cx="11" cy="3" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" />
+      <circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="13" r="1.5" />
+      <circle cx="11" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
+function ProjectCard({
+  project,
+  onRemove,
+  isOverlay,
+}: {
+  project: Project;
+  onRemove: (id: string) => void;
+  isOverlay?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  if (isOverlay) {
+    return (
+      <div className="rounded-2xl border border-white/30 bg-gray-900/90 p-5 shadow-2xl backdrop-blur-xl">
+        {project.imageUrl && (
+          <div
+            className="mb-4 h-40 w-full rounded-xl bg-cover bg-center"
+            style={{ backgroundImage: `url(${project.imageUrl})` }}
+          />
+        )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="mt-1 text-white/60 cursor-grabbing">
+              <DragHandle />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold text-white">
+                {project.title}
+              </p>
+              <p className="break-all text-sm text-blue-300 sm:truncate">
+                {project.url}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition sm:flex-none"
+          >
+            Remove
+          </button>
+        </div>
+        <p className="mt-4 text-sm leading-6 text-gray-300">
+          {project.description}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-2xl border bg-white/5 p-5 backdrop-blur-xl transition ${
+        isDragging ? 'border-white/40 opacity-50' : 'border-white/20'
+      }`}
+    >
+      {project.imageUrl && (
+        <div
+          className="mb-4 h-40 w-full rounded-xl bg-cover bg-center"
+          style={{ backgroundImage: `url(${project.imageUrl})` }}
+        />
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <button
+            type="button"
+            className="mt-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing touch-none"
+            aria-label="Drag to reorder"
+            {...attributes}
+            {...listeners}
+          >
+            <DragHandle />
+          </button>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-white">
+              {project.title}
+            </p>
+            <p className="break-all text-sm text-blue-300 sm:truncate">
+              {project.url}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onRemove(project.id)}
+          className="shrink-0 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10"
+        >
+          Remove
+        </button>
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-gray-300">
+        {project.description}
+      </p>
+    </div>
+  );
 }
 
 export function ProjectEditor({
@@ -32,39 +181,25 @@ export function ProjectEditor({
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [reorderingProjectId, setReorderingProjectId] = useState<string | null>(
-    null,
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
-  const [draggingProjectId, setDraggingProjectId] = useState<string | null>(
-    null,
-  );
-  const [dropTargetProjectId, setDropTargetProjectId] = useState<string | null>(
-    null,
-  );
+
+  const activeProject = activeId
+    ? projects.find((p) => p.id === activeId) ?? null
+    : null;
 
   function normalizeProjects(items: Project[]) {
     return [...items].sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     );
-  }
-
-  function reorderProjects(items: Project[], activeId: string, targetId: string) {
-    const nextProjects = [...items];
-    const currentIndex = nextProjects.findIndex((project) => project.id === activeId);
-    const targetIndex = nextProjects.findIndex((project) => project.id === targetId);
-
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      currentIndex === targetIndex
-    ) {
-      return items;
-    }
-
-    const [movedProject] = nextProjects.splice(currentIndex, 1);
-    nextProjects.splice(targetIndex, 0, movedProject);
-
-    return nextProjects;
   }
 
   async function persistOrder(nextProjects: Project[]) {
@@ -86,6 +221,33 @@ export function ProjectEditor({
         sortOrder: index,
       })),
     );
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = projects.findIndex((p) => p.id === active.id);
+    const newIndex = projects.findIndex((p) => p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const previousProjects = [...projects];
+    const nextProjects = arrayMove(projects, oldIndex, newIndex);
+    setProjects(nextProjects);
+
+    try {
+      await persistOrder(nextProjects);
+    } catch {
+      setProjects(previousProjects);
+      alert('Failed to reorder projects');
+    }
   }
 
   async function addProject(e: React.FormEvent) {
@@ -134,66 +296,6 @@ export function ProjectEditor({
     }
   }
 
-  async function moveProject(projectId: string, direction: -1 | 1) {
-    const index = projects.findIndex((project) => project.id === projectId);
-    const targetIndex = index + direction;
-
-    if (index < 0 || targetIndex < 0 || targetIndex >= projects.length) {
-      return;
-    }
-
-    const previousProjects = [...projects];
-    const nextProjects = [...projects];
-    [nextProjects[index], nextProjects[targetIndex]] = [
-      nextProjects[targetIndex],
-      nextProjects[index],
-    ];
-
-    setReorderingProjectId(projectId);
-
-    try {
-      await persistOrder(nextProjects);
-    } catch {
-      setProjects(previousProjects);
-      alert('Failed to reorder projects');
-    } finally {
-      setReorderingProjectId(null);
-    }
-  }
-
-  async function dropProject(targetProjectId: string) {
-    if (
-      !draggingProjectId ||
-      draggingProjectId === targetProjectId ||
-      reorderingProjectId
-    ) {
-      setDraggingProjectId(null);
-      setDropTargetProjectId(null);
-      return;
-    }
-
-    const previousProjects = projects;
-    const nextProjects = reorderProjects(
-      projects,
-      draggingProjectId,
-      targetProjectId,
-    );
-
-    setProjects(nextProjects);
-    setReorderingProjectId(draggingProjectId);
-
-    try {
-      await persistOrder(nextProjects);
-    } catch {
-      setProjects(previousProjects);
-      alert('Failed to reorder projects');
-    } finally {
-      setReorderingProjectId(null);
-      setDraggingProjectId(null);
-      setDropTargetProjectId(null);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
@@ -202,7 +304,7 @@ export function ProjectEditor({
         </h2>
         <p className="mb-4 text-sm text-gray-400">
           Showcase work with a title, link, image, and short description.
-          Drag cards to reorder them or use the move buttons.
+          Drag the handle to reorder.
         </p>
 
         <form onSubmit={addProject} className="space-y-3">
@@ -262,87 +364,36 @@ export function ProjectEditor({
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {projects.map((project, index) => (
-            <div
-              key={project.id}
-              draggable={!reorderingProjectId}
-              onDragStart={() => setDraggingProjectId(project.id)}
-              onDragEnd={() => {
-                setDraggingProjectId(null);
-                setDropTargetProjectId(null);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (draggingProjectId && draggingProjectId !== project.id) {
-                  setDropTargetProjectId(project.id);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                void dropProject(project.id);
-              }}
-              className={`rounded-2xl border bg-white/5 p-5 backdrop-blur-xl transition ${
-                draggingProjectId === project.id
-                  ? 'border-white/40 opacity-60'
-                  : dropTargetProjectId === project.id
-                    ? 'border-blue-300/60 bg-white/10'
-                    : 'border-white/20'
-              } ${reorderingProjectId ? 'cursor-wait' : 'cursor-grab active:cursor-grabbing'}`}
-            >
-              {project.imageUrl && (
-                <div
-                  className="mb-4 h-40 w-full rounded-xl bg-cover bg-center"
-                  style={{ backgroundImage: `url(${project.imageUrl})` }}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={projects.map((p) => p.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid gap-4 lg:grid-cols-2">
+              {projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onRemove={removeProject}
                 />
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-white">
-                    {project.title}
-                  </p>
-                  <p className="break-all text-sm text-blue-300 sm:truncate">
-                    {project.url}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeProject(project.id)}
-                  className="shrink-0 rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10"
-                >
-                  Remove
-                </button>
-              </div>
-
-              <p className="mt-4 text-sm leading-6 text-gray-300">
-                {project.description}
-              </p>
-
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => moveProject(project.id, -1)}
-                  disabled={reorderingProjectId !== null || index === 0}
-                  className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50 sm:flex-none"
-                >
-                  Move Up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveProject(project.id, 1)}
-                  disabled={
-                    reorderingProjectId !== null ||
-                    index === projects.length - 1
-                  }
-                  className="flex-1 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50 sm:flex-none"
-                >
-                  Move Down
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+          <DragOverlay>
+            {activeProject ? (
+              <ProjectCard
+                project={activeProject}
+                onRemove={() => {}}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );

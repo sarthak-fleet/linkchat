@@ -7,6 +7,26 @@ import {
   getPageSectionLabel,
   type PageSectionType,
 } from '@/lib/page-sections';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
 
 type Section = {
   id: string;
@@ -19,6 +39,148 @@ type Section = {
   sortOrder: number | null;
   enabled: boolean | null;
 };
+
+function DragHandle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="shrink-0"
+    >
+      <circle cx="5" cy="3" r="1.5" />
+      <circle cx="11" cy="3" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" />
+      <circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="13" r="1.5" />
+      <circle cx="11" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
+function SectionCard({
+  section,
+  index,
+  editingId,
+  onEdit,
+  onRemove,
+  isOverlay,
+}: {
+  section: Section;
+  index: number;
+  editingId: string | null;
+  onEdit: (section: Section) => void;
+  onRemove: (id: string) => void;
+  isOverlay?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const content = (
+    <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          {isOverlay ? (
+            <div className="mt-1 text-white/60 cursor-grabbing">
+              <DragHandle />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="mt-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing touch-none"
+              aria-label="Drag to reorder"
+              {...attributes}
+              {...listeners}
+            >
+              <DragHandle />
+            </button>
+          )}
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-300">
+                #{index + 1}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-cyan-200">
+                {getPageSectionLabel(section.type)}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  section.enabled ? 'bg-green-500/15 text-green-300' : 'bg-gray-500/15 text-gray-400'
+                }`}
+              >
+                {section.enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+            <p className="truncate text-lg font-semibold text-white">
+              {section.title}
+            </p>
+            <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-300">
+              {section.content}
+            </p>
+            {section.type === 'cta' && section.buttonLabel && section.buttonUrl && (
+              <p className="mt-3 text-sm text-blue-300">
+                Button: {section.buttonLabel} - {section.buttonUrl}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(section)}
+            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(section.id)}
+            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  if (isOverlay) {
+    return (
+      <div className="rounded-2xl border border-white/30 bg-gray-900/90 p-5 shadow-2xl backdrop-blur-xl">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-2xl border bg-white/5 p-5 backdrop-blur-xl transition ${
+        isDragging
+          ? 'border-white/40 opacity-50'
+          : section.id === editingId
+            ? 'border-white/40'
+            : 'border-white/20'
+      }`}
+    >
+      {content}
+    </div>
+  );
+}
 
 function sortSections(items: Section[]) {
   return [...items].sort(
@@ -43,7 +205,23 @@ export function SectionEditor({
   const [buttonUrl, setButtonUrl] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [reordering, setReordering] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const activeSection = activeId
+    ? sections.find((s) => s.id === activeId) ?? null
+    : null;
+  const activeIndex = activeId
+    ? sections.findIndex((s) => s.id === activeId)
+    : -1;
 
   function resetForm() {
     setEditingId(null);
@@ -83,30 +261,30 @@ export function SectionEditor({
     router.refresh();
   }
 
-  async function moveSection(sectionId: string, direction: -1 | 1) {
-    const index = sections.findIndex((section) => section.id === sectionId);
-    const targetIndex = index + direction;
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
 
-    if (index < 0 || targetIndex < 0 || targetIndex >= sections.length) {
-      return;
-    }
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
 
-    const nextSections = [...sections];
-    [nextSections[index], nextSections[targetIndex]] = [
-      nextSections[targetIndex],
-      nextSections[index],
-    ];
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-    setReordering(true);
+    const oldIndex = sections.findIndex((s) => s.id === active.id);
+    const newIndex = sections.findIndex((s) => s.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const previousSections = [...sections];
+    const nextSections = arrayMove(sections, oldIndex, newIndex);
     setSections(nextSections);
 
     try {
       await persistOrder(nextSections);
     } catch {
-      setSections(sortSections(sections));
+      setSections(previousSections);
       alert('Failed to reorder sections');
-    } finally {
-      setReordering(false);
     }
   }
 
@@ -340,82 +518,43 @@ export function SectionEditor({
           <p className="text-gray-400">No sections yet. Add the first one above.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {sections.map((section, index) => (
-            <div
-              key={section.id}
-              className={`rounded-2xl border bg-white/5 p-5 backdrop-blur-xl transition ${
-                section.id === editingId
-                  ? 'border-white/40'
-                  : 'border-white/20'
-              } ${reordering ? 'opacity-80' : ''}`}
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-300">
-                      #{index + 1}
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-cyan-200">
-                      {getPageSectionLabel(section.type)}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        section.enabled ? 'bg-green-500/15 text-green-300' : 'bg-gray-500/15 text-gray-400'
-                      }`}
-                    >
-                      {section.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <p className="truncate text-lg font-semibold text-white">
-                    {section.title}
-                  </p>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-300">
-                    {section.content}
-                  </p>
-                  {section.type === 'cta' && section.buttonLabel && section.buttonUrl && (
-                    <p className="mt-3 text-sm text-blue-300">
-                      Button: {section.buttonLabel} - {section.buttonUrl}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(section)}
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveSection(section.id, -1)}
-                    disabled={index === 0 || reordering}
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Up
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveSection(section.id, 1)}
-                    disabled={index === sections.length - 1 || reordering}
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Down
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeSection(section.id)}
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-red-400 transition hover:bg-red-500/10"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={sections.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {sections.map((section, index) => (
+                <SectionCard
+                  key={section.id}
+                  section={section}
+                  index={index}
+                  editingId={editingId}
+                  onEdit={startEdit}
+                  onRemove={removeSection}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+          <DragOverlay>
+            {activeSection ? (
+              <SectionCard
+                section={activeSection}
+                index={activeIndex}
+                editingId={editingId}
+                onEdit={() => {}}
+                onRemove={() => {}}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );

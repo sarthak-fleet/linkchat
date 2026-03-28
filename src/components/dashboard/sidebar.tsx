@@ -8,6 +8,7 @@ const navItems = [
   { label: 'Links', href: '/dashboard/links' },
   { label: 'Projects', href: '/dashboard/projects' },
   { label: 'Sections', href: '/dashboard/sections' },
+  { label: 'Pages', href: '/dashboard/pages' },
   { label: 'Appearance', href: '/dashboard/appearance' },
   { label: 'Chatbot Memory', href: '/dashboard/memory' },
   { label: 'Leads', href: '/dashboard/leads' },

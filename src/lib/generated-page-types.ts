@@ -1,0 +1,36 @@
+export type GeneratedPageType = 'encyclopedia' | 'roast' | 'newspaper';
+export type GeneratedPageStatus = 'pending' | 'generating' | 'ready' | 'error';
+
+export interface EncyclopediaContent {
+  leadParagraph: string;
+  infobox: Record<string, string>;
+  sections: { heading: string; content: string }[];
+  categories: string[];
+}
+
+export interface RoastContent {
+  roast: string;
+  vibeScore: number;
+  personalityType: string;
+  redFlags: string[];
+  bestLink: { title: string; reason: string };
+  worstLink: { title: string; reason: string };
+  spiritPlatform: string;
+  celebrityMatch: string;
+  bioAutopsy: string;
+  firstImpression: string;
+}
+
+export interface NewspaperContent {
+  mastheadName: string;
+  dateline: string;
+  leadStory: {
+    headline: string;
+    subheadline: string;
+    body: string;
+    pullQuote: string;
+  };
+  secondaryStories: { headline: string; body: string }[];
+  sidebar: { facts: string[]; mood: string };
+  fakeAds: string[];
+}

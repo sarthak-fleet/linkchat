@@ -79,3 +79,40 @@ export async function chatCompletion(
   if (!res.ok) throw new Error(`Chat failed: ${await res.text()}`);
   return res.body!;
 }
+
+export async function generateCompletion(
+  apiKey: string,
+  indexId: string,
+  query: string,
+  systemPrompt: string
+): Promise<string> {
+  const res = await fetch(`${API_URL}/v1/ai/rag`, {
+    method: 'POST',
+    headers: headers({ apiKey }),
+    body: JSON.stringify({
+      index_id: indexId,
+      query,
+      system_prompt: systemPrompt,
+      stream: false,
+    }),
+  });
+  if (!res.ok) throw new Error(`Generation failed: ${await res.text()}`);
+  const data = await res.json();
+  return data.response ?? data.text ?? JSON.stringify(data);
+}
+
+export function parseAIResponse<T>(raw: string): T {
+  // Try direct JSON parse first
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Extract JSON from markdown code blocks
+    const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) return JSON.parse(match[1].trim());
+    // Try finding first { to last }
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start !== -1 && end > start) return JSON.parse(raw.slice(start, end + 1));
+    throw new Error('Could not parse AI response as JSON');
+  }
+}

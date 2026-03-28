@@ -1,0 +1,76 @@
+import { db, ensureProjectsTable } from '@/db';
+import { pages, users, infoBlocks, links, projects, generatedPages } from '@/db/schema';
+import { eq, and, asc } from 'drizzle-orm';
+import { generateCompletion, parseAIResponse } from '@/lib/saasmaker';
+import { ENCYCLOPEDIA_SYSTEM_PROMPT } from '@/lib/ai-prompts';
+import { rateLimit } from '@/lib/rate-limit';
+import type { EncyclopediaContent } from '@/lib/generated-page-types';
+
+export async function POST(req: Request, { params }: { params: Promise<{ pageId: string }> }) {
+  const { pageId } = await params;
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const { ok } = rateLimit(`encyclopedia:${ip}`);
+  if (!ok) return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429 });
+
+  await ensureProjectsTable();
+
+  const [page] = await db.select().from(pages).where(eq(pages.id, pageId));
+  if (!page || !page.encyclopediaEnabled) {
+    return new Response(JSON.stringify({ error: 'Encyclopedia not enabled' }), { status: 404 });
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, page.userId));
+  if (!user?.smApiKey || !user?.smIndexId) {
+    return new Response(JSON.stringify({ error: 'AI not configured' }), { status: 503 });
+  }
+
+  // Collect all context
+  const blocks = await db.select().from(infoBlocks).where(eq(infoBlocks.pageId, pageId));
+  const pageLinks = await db.select().from(links).where(eq(links.pageId, pageId)).orderBy(asc(links.sortOrder));
+  const pageProjects = await db.select().from(projects).where(eq(projects.pageId, pageId)).orderBy(asc(projects.sortOrder));
+
+  const context = [
+    `Name: ${page.displayName}`,
+    `Bio: ${page.bio || 'No bio'}`,
+    `Links: ${pageLinks.map((l) => `${l.title} (${l.url})`).join(', ') || 'None'}`,
+    `Projects: ${pageProjects.map((p) => `${p.title}: ${p.description}`).join('\n') || 'None'}`,
+    ...blocks.map((b) => `${b.title || b.type}: ${b.content}`),
+  ].join('\n\n');
+
+  try {
+    const raw = await generateCompletion(
+      user.smApiKey,
+      user.smIndexId,
+      `Write a Wikipedia-style encyclopedia article about this person:\n\n${context}`,
+      ENCYCLOPEDIA_SYSTEM_PROMPT,
+    );
+
+    const encyclopedia = parseAIResponse<EncyclopediaContent>(raw);
+
+    // Upsert
+    const existing = await db
+      .select()
+      .from(generatedPages)
+      .where(and(eq(generatedPages.pageId, pageId), eq(generatedPages.type, 'encyclopedia')))
+      .limit(1);
+
+    if (existing[0]) {
+      await db
+        .update(generatedPages)
+        .set({ content: encyclopedia as any, status: 'ready', updatedAt: new Date() })
+        .where(eq(generatedPages.id, existing[0].id));
+    } else {
+      await db.insert(generatedPages).values({
+        pageId,
+        type: 'encyclopedia',
+        content: encyclopedia as any,
+        status: 'ready',
+      });
+    }
+
+    return Response.json(encyclopedia);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Failed to generate encyclopedia' }), { status: 500 });
+  }
+}

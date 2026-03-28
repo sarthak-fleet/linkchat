@@ -76,12 +76,26 @@ export const pages = sqliteTable('pages', {
   published: integer('published', { mode: 'boolean' }).default(false),
   chatEnabled: integer('chatEnabled', { mode: 'boolean' }).default(false),
   chatSystemPrompt: text('chatSystemPrompt'),
+  encyclopediaEnabled: integer('encyclopediaEnabled', { mode: 'boolean' }).default(false),
+  roastEnabled: integer('roastEnabled', { mode: 'boolean' }).default(false),
+  newspaperEnabled: integer('newspaperEnabled', { mode: 'boolean' }).default(false),
   createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(
     () => new Date(),
   ),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).$defaultFn(
     () => new Date(),
   ),
+});
+
+// ── Generated Pages (cached AI content) ─────────────────────────────
+export const generatedPages = sqliteTable('generatedPages', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  pageId: text('pageId').notNull().references(() => pages.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'encyclopedia' | 'roast' | 'newspaper'
+  content: text('content', { mode: 'json' }).$type<Record<string, unknown>>(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'generating' | 'ready' | 'error'
+  createdAt: integer('createdAt', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // ── Links (profile links) ────────────────────────────────────────────

@@ -96,6 +96,34 @@ export async function ensureProjectsTable() {
         CREATE INDEX IF NOT EXISTS projects_page_id_sort_order_idx
         ON projects (pageId, sortOrder)
       `);
+
+      // Generated pages (AI content cache)
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS generatedPages (
+          id TEXT PRIMARY KEY NOT NULL,
+          pageId TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+          type TEXT NOT NULL,
+          content TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          createdAt INTEGER,
+          updatedAt INTEGER
+        )
+      `);
+
+      await client.execute(`
+        CREATE INDEX IF NOT EXISTS generated_pages_page_id_type_idx
+        ON generatedPages (pageId, type)
+      `);
+
+      // Add new page feature columns if missing
+      const pageColumns = await client.execute('PRAGMA table_info(pages)');
+      const pageColNames = new Set(pageColumns.rows.map((r) => (r as { name?: string }).name));
+
+      for (const col of ['encyclopediaEnabled', 'roastEnabled', 'newspaperEnabled']) {
+        if (!pageColNames.has(col)) {
+          await client.execute(`ALTER TABLE pages ADD COLUMN ${col} INTEGER DEFAULT 0`);
+        }
+      }
     })().catch((error) => {
       featureTablesReady = null;
       throw error;

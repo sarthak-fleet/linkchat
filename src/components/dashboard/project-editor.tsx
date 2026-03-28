@@ -298,64 +298,56 @@ export function ProjectEditor({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <h2 className="mb-1 text-lg font-semibold text-white">
-          Add a Project
-        </h2>
-        <p className="mb-4 text-sm text-gray-400">
-          Showcase work with a title, link, image, and short description.
-          Drag the handle to reorder.
-        </p>
-
-        <form onSubmit={addProject} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              placeholder="Project title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-400 outline-none focus:border-blue-400"
-              required
-            />
-            <input
-              type="url"
-              placeholder="https://example.com/project"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-400 outline-none focus:border-blue-400"
-              required
-            />
-          </div>
-
-          <ImageUploadField
-            pageId={pageId}
-            kind="project"
-            label="Project Image"
-            value={imageUrl}
-            onChange={setImageUrl}
-            onUploadingChange={setUploadingImage}
-            placeholder="https://example.com/project.jpg"
-            helpText="Upload a local screenshot or cover image, or paste a public URL."
-          />
-
-          <textarea
-            rows={4}
-            placeholder="What is this project? What should visitors know?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder-gray-400 outline-none focus:border-blue-400"
+      <form onSubmit={addProject} className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            placeholder="Project title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-400 outline-none focus:border-white/40"
             required
           />
+          <input
+            type="url"
+            placeholder="https://example.com/project"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-gray-400 outline-none focus:border-white/40"
+            required
+          />
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading || uploadingImage}
-            className="w-full rounded-lg bg-white px-6 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:opacity-50 sm:w-auto"
-          >
-            {uploadingImage ? 'Uploading image...' : loading ? 'Adding...' : 'Add Project'}
-          </button>
-        </form>
-      </div>
+        <ImageUploadField
+          pageId={pageId}
+          kind="project"
+          label="Project Image"
+          value={imageUrl}
+          onChange={setImageUrl}
+          onUploadingChange={setUploadingImage}
+          placeholder="https://example.com/project.jpg"
+          helpText="Upload a local screenshot or cover image, or paste a public URL."
+        />
+
+        <textarea
+          rows={3}
+          placeholder="What is this project? What should visitors know?"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder-gray-400 outline-none focus:border-white/40"
+          required
+        />
+
+        <button
+          type="submit"
+          disabled={loading || uploadingImage}
+          className="w-full rounded-lg bg-white px-6 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:opacity-50 sm:w-auto"
+        >
+          {uploadingImage ? 'Uploading image...' : loading ? 'Adding...' : 'Add Project'}
+        </button>
+      </form>
+
+      <hr className="border-white/10" />
 
       {projects.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-8 text-center">

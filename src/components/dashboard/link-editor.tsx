@@ -270,38 +270,33 @@ export function LinkEditor({
 
   return (
     <div className="space-y-6">
-      {/* Add link form */}
-      <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <h2 className="mb-4 text-lg font-semibold text-white">Add a Link</h2>
-        <p className="mb-4 text-sm text-gray-400">
-          Drag the handle to reorder your links.
-        </p>
-        <form onSubmit={addLink} className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="text"
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="flex-1 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder-gray-400 outline-none focus:border-blue-400"
-            required
-          />
-          <input
-            type="url"
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="flex-1 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder-gray-400 outline-none focus:border-blue-400"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-white px-6 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:opacity-50 sm:w-auto"
-          >
-            {loading ? 'Adding...' : 'Add'}
-          </button>
-        </form>
-      </div>
+      <form onSubmit={addLink} className="flex flex-col gap-3 sm:flex-row">
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="flex-1 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder-gray-400 outline-none focus:border-white/40"
+          required
+        />
+        <input
+          type="url"
+          placeholder="https://example.com"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          className="flex-1 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder-gray-400 outline-none focus:border-white/40"
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-white px-6 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:opacity-50 sm:w-auto"
+        >
+          {loading ? 'Adding...' : 'Add'}
+        </button>
+      </form>
+
+      <hr className="border-white/10" />
 
       {/* Links list */}
       {links.length === 0 ? (

@@ -36,8 +36,7 @@ export default async function ProjectsPage() {
     <div>
       <h1 className="mb-1 text-2xl font-bold text-white">Projects</h1>
       <p className="mb-6 text-sm text-gray-400">
-        Add portfolio pieces visitors can explore directly from your profile.
-        Use the move buttons to reorder them.
+        Showcase work with a title, link, image, and description. Drag to reorder.
       </p>
       <ProjectEditor pageId={page.id} initialProjects={pageProjects} />
     </div>

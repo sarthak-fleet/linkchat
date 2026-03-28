@@ -373,26 +373,19 @@ export function SectionEditor({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">
-              {editingId ? 'Edit Section' : 'Add a Section'}
-            </h2>
-            <p className="text-sm text-gray-400">
-              Build structured blocks for the public page.
-            </p>
-          </div>
-          {editingId && (
+      <div>
+        {editingId && (
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-medium text-white">Editing section</p>
             <button
               type="button"
               onClick={resetForm}
-              className="w-full rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10 sm:w-auto"
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white transition hover:bg-white/10"
             >
-              Cancel Edit
+              Cancel
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">

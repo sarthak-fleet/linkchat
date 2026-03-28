@@ -8,6 +8,7 @@ import { pages } from '@/db/schema';
 type PublicTopBarProps = {
   accentColor?: string;
   current?: 'home' | 'create' | 'login' | 'profile';
+  variant?: 'default' | 'minimal';
 };
 
 function getInitials(value: string | null | undefined) {
@@ -24,15 +25,12 @@ function getInitials(value: string | null | undefined) {
 export async function PublicTopBar({
   accentColor = '#ffffff',
   current = 'home',
+  variant = 'default',
 }: PublicTopBarProps) {
-  // Skip auth entirely for public pages to avoid 200ms+ session lookup
-  // The top bar will just show login/create buttons for everyone
-  // Dashboard link is available from the dashboard itself
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let session: any = null;
   let userPage: { slug: string } | null = null;
 
-  // Only check auth if cookies suggest a session exists (avoid DB hit for anonymous visitors)
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const hasSessionCookie = cookieStore.has('authjs.session-token') || cookieStore.has('__Secure-authjs.session-token');
@@ -49,6 +47,54 @@ export async function PublicTopBar({
     } catch {
       // Auth failed, show anonymous UI
     }
+  }
+
+  if (variant === 'minimal') {
+    return (
+      <nav className="relative z-20 mx-auto w-full max-w-5xl px-5 pt-6 sm:px-6">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="text-lg font-semibold text-white transition hover:opacity-80">
+            LinkChat
+          </Link>
+
+          <div className="flex items-center gap-3">
+            {session?.user ? (
+              <>
+                {userPage?.slug && current !== 'profile' && (
+                  <Link
+                    href={`/${userPage.slug}`}
+                    className="text-sm font-medium text-slate-400 transition hover:text-white"
+                  >
+                    My Profile
+                  </Link>
+                )}
+                <Link
+                  href="/dashboard"
+                  className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-gray-950 transition hover:bg-cyan-300"
+                >
+                  Dashboard
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-slate-400 transition hover:text-white"
+                >
+                  Log In
+                </Link>
+                <Link
+                  href="/create"
+                  className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-gray-950 transition hover:bg-cyan-300"
+                >
+                  Start Free
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+    );
   }
 
   return (

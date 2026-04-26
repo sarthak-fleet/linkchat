@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/pages/[pageId]/links/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"/Users/sarthakagrawal/Desktop/Fleet/linkchat/src/app/api/pages/[pageId]/links/route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"components/public/roast/roast-page-client.tsx -> html-to-image":{"id":3852,"files":["static/chunks/3852-9cbff9814e622a2e.js"]}}';
